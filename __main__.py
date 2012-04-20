@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from PyQt4 import QtCore, QtGui
 import psycopg2
 
@@ -9,7 +9,7 @@ def trUtf8(Instance, SourceText):
 class MyWindow(QtGui.QWidget):
     def __init__(self,parent=None):
         QtGui.QWidget.__init__(self, parent)
-        con=psycopg2.connect("dbname=comm user=postgres password=abc678 port=5432")
+        con=psycopg2.connect("dbname=comm user=postgres password=jktcmrf port=5432")
         cur = con.cursor()
    
         self.setWindowTitle(trUtf8(app,"Подбор и сравнение товаров в интернет-магазине"))
@@ -18,8 +18,9 @@ class MyWindow(QtGui.QWidget):
         self.layout_left=QtGui.QVBoxLayout()
         self.layout_right=QtGui.QVBoxLayout()
     
-        self.label_left=QtGui.QLabel(trUtf8(app,"Выберите категорию товара:"))
-        self.label_right1=QtGui.QLabel(trUtf8(app,"Категория:"))
+        self.label_left=QtGui.QLabel(trUtf8(app,"Выберите требуемые характеристики товара:"))
+        self.label_right1=QtGui.QLabel(trUtf8(app,"<center> Характеристики: </center>"))
+        self.label_right2=QtGui.QLabel(trUtf8(app,"Категория:"))
         cur.execute("select cat_name from categories where parent_cat_id is null;")
         info=cur.fetchall()
         self.checklist_right1=QtGui.QComboBox()
@@ -28,7 +29,9 @@ class MyWindow(QtGui.QWidget):
         self.connect(self.checklist_right1, QtCore.SIGNAL("activated(QString)"),self,QtCore.SLOT("categor(QString)"))
         self.layout_left.addWidget(self.label_left)
         self.layout_right.addWidget(self.label_right1)
+        self.layout_right.addWidget(self.label_right2)
         self.layout_right.addWidget(self.checklist_right1)
+        self.layout_right.addStretch()
         self.layout_cent.addLayout(self.layout_left)
         self.layout_cent.addLayout(self.layout_right)
     
@@ -39,14 +42,21 @@ class MyWindow(QtGui.QWidget):
         
     @QtCore.pyqtSlot('QString')
     def categor(self, value):
-        self.label_left.setText(trUtf8(app,"Выберите подкатегорию товара"))
+        self.label_left.setText(trUtf8(app,"Выберите подкатегорию товара:"))
         
         # удаление ненужного на self.layout_right
-        if self.layout_right.count()==3:
-            it=self.layout_right.itemAt(2)
+        if self.layout_right.count()==4:
+            it=self.layout_right.itemAt(3)
+            self.layout_right.removeItem(it)
+        if self.layout_right.count()==6:
+            it=self.layout_right.itemAt(4)
+            self.layout_right.removeItem(it)
+            it=self.layout_right.itemAt(4)
             self.layout_right.removeItem(it)
             
-        con=psycopg2.connect("dbname=comm user=postgres password=abc678 port=5432")
+        self.layout_right.update()
+            
+        con=psycopg2.connect("dbname=comm user=postgres password=jktcmrf port=5432")
         cur = con.cursor()
         cur.execute("select cat_name from categories where parent_cat_id=(select cat_id from categories where cat_name='"+str(value)+"');")
         info=cur.fetchall()
@@ -56,7 +66,14 @@ class MyWindow(QtGui.QWidget):
         con.commit()
         cur.close()
         con.close()
+        if self.layout_right.count()!=4:
+            self.label_right3=QtGui.QLabel(trUtf8(app,"Подкатегория:"))
+            self.layout_right.addWidget(self.label_right3)
         self.layout_right.addWidget(self.checklist_right2)
+        self.layout_right.addStretch()
+
+
+
 
 if __name__ == "__main__":
     import sys
