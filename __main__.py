@@ -74,9 +74,14 @@ class MyWindow(QtGui.QWidget):
         self.layout_right.addStretch()
         
         
-        @QtCore.pyqtSlot('QString')
+    @QtCore.pyqtSlot('QString')
     def podcategor(self, value):
         self.label_left.setText(trUtf8(app,"Выберите требуемые характеристики товара данной подкатегории:"))
+        # удаление ненужного на self.layout_right1
+        con=psycopg2.connect("dbname=comm user=postgres password=jktcmrf port=5432")
+        cur = con.cursor()
+        cur.execute("select ch_name, ch_type from categories where parent_cat_id=(select ch_id  from categories_characteristics where cat_id='"+str(value)+"');")
+        info=cur.fetchall()
 
 
 
