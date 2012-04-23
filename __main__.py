@@ -63,6 +63,7 @@ class MyWindow(QtGui.QWidget):
         self.checklist_right2=QtGui.QComboBox()
         for el in info:
             self.checklist_right2.addItem(trUtf8(app,str(el[0])))
+        self.connect(self.checklist_right2, QtCore.SIGNAL("activated(QString)"),self,QtCore.SLOT("podcategor(QString)"))
         con.commit()
         cur.close()
         con.close()
@@ -71,6 +72,11 @@ class MyWindow(QtGui.QWidget):
             self.layout_right.addWidget(self.label_right3)
         self.layout_right.addWidget(self.checklist_right2)
         self.layout_right.addStretch()
+        
+        
+        @QtCore.pyqtSlot('QString')
+    def podcategor(self, value):
+        self.label_left.setText(trUtf8(app,"Выберите требуемые характеристики товара данной подкатегории:"))
 
 
 
