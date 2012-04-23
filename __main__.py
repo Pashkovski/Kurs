@@ -80,8 +80,10 @@ class MyWindow(QtGui.QWidget):
         # удаление ненужного на self.layout_right1
         con=psycopg2.connect("dbname=comm user=postgres password=jktcmrf port=5432")
         cur = con.cursor()
-        cur.execute("select ch_name, ch_type from categories where parent_cat_id=(select ch_id  from categories_characteristics where cat_id='"+str(value)+"');")
+        quer="select ch_name, ch_type from characteristics where ch_id in (select ch_id  from categories_characteristics where cat_id=(select cat_id from categories where cat_name='"+str(value)+"'));"
+        cur.execute(quer)
         info=cur.fetchall()
+        self.label_left.setText(trUtf8(app,str(info[0])))
 
 
 
