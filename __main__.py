@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from PyQt4 import QtCore, QtGui
 import queries
+import comparison
 
 # для правильного отображения кириллицы
 Instanse = QtCore.QObject
@@ -17,18 +18,19 @@ class MyWindow(QtGui.QWidget):
     condition=0
     
     RIGHTPARTWIDTH = 250  # ширина правой части окна
-    LEFTPARTWIDTH  = 470  # ширина левой  части окна
-    WINDOWWIDTH    = 800  # ширина окна
+    LEFTPARTWIDTH  = 380  # ширина левой  части окна
+    WINDOWWIDTH    = 700  # ширина окна
     WINDOWHEIGHT   = 600  # высота окна
+    CHARACSPACING  = 10   # отступ между формами ввода значений
     
     def __init__(self,parent=None):
         QtGui.QWidget.__init__(self, parent)
 
-        ### создание всего ###
+        ### настройки окна ###
         self.setWindowTitle(trUtf8(app,"Подбор и сравнение товаров в интернет-магазине"))
         self.setFixedSize(self.WINDOWWIDTH,self.WINDOWHEIGHT)
+        # создание лейблов
         self.label_left=QtGui.QLabel(trUtf8(app,"Выберите категорию товара:"))
-        
         self.label_right1=QtGui.QLabel(trUtf8(app,"<center><b>Категория:</b></center>"))
         # получение родительских категорий
         categories=queries.selectParentCategories(con)
@@ -84,6 +86,8 @@ class MyWindow(QtGui.QWidget):
             if self.condition ==4:
                 self.layout_left.removeWidget(self.scr)
                 self.scr.deleteLater()
+                self.layout_left.removeWidget(self.comparebtn)
+                self.comparebtn.deleteLater()
         
         # получение подкатегорий
         info=queries.selectSubCategories(value, con)
@@ -120,6 +124,8 @@ class MyWindow(QtGui.QWidget):
             if self.condition ==4:
                 self.layout_left.removeWidget(self.scr)
                 self.scr.deleteLater()
+                self.layout_left.removeWidget(self.comparebtn)
+                self.comparebtn.deleteLater()
         
         # сохранение информации о текущей подкатегории
         info=queries.selectCategoryId(value, con)
@@ -161,14 +167,12 @@ class MyWindow(QtGui.QWidget):
                 l_e_next_to=QtGui.QLineEdit(self.widget_inner)
                 # по-умолчанию ставим минимальное и максимальное значение из базы
                 minVal=queries.selectMinValueForCertainCharacteristic(el[2],self.current_subcategory,con)
-                minVal=minVal[0][0]
                 l_e_next_from.setText(str(minVal))
                 maxVal=queries.selectMaxValueForCertainCharacteristic(el[2],self.current_subcategory,con)
-                maxVal=maxVal[0][0]
                 l_e_next_to.setText(str(maxVal))
                 # соединяем формы со слотом
-                self.connect(l_e_next_from, QtCore.SIGNAL("textEdited(QString)"),self,QtCore.SLOT("changeChar(QString)"))
-                self.connect(l_e_next_to, QtCore.SIGNAL("textEdited(QString)"),self,QtCore.SLOT("changeChar(QString)"))
+                self.connect(l_e_next_from, QtCore.SIGNAL("textEdited(QString)"),self,QtCore.SLOT("changeRanChar(QString)"))
+                self.connect(l_e_next_to, QtCore.SIGNAL("textEdited(QString)"),self,QtCore.SLOT("changeRanChar(QString)"))
                 # сохраняем инфо в массивы с текущей информацией
                 self.widgets_array.append(l_e_next_from)
                 self.ch_id_array.append(el[2])
@@ -189,10 +193,13 @@ class MyWindow(QtGui.QWidget):
                 info2=queries.selectAllDistinctEnumValues(el[2],self.current_subcategory,con)
                 # создание Combo и добавление значений перечисления
                 combo_new=QtGui.QComboBox()
+                # добавление значения "не важно"
+                combo_new.addItem(trUtf8(app,"не важно"))
+                # добавление остальных значений
                 for el2 in info2:
                     combo_new.addItem(trUtf8(app,str(el2[0])))
                 # соединяем форму со слотом
-                self.connect(combo_new, QtCore.SIGNAL("activated(QString)"),self,QtCore.SLOT("changeChar(QString)"))
+                self.connect(combo_new, QtCore.SIGNAL("activated(QString)"),self,QtCore.SLOT("changeEnChar(QString)"))
                 # сохраняем инфо в массивы с текущей информацией
                 self.widgets_array.append(combo_new)
                 self.ch_id_array.append(el[2])
@@ -200,7 +207,7 @@ class MyWindow(QtGui.QWidget):
                 # добавляем Combo на layout
                 self.layout_inner.addWidget(combo_new)
             # добавляем небольшой отступ вниз
-            self.layout_inner.addSpacing(5)
+            self.layout_inner.addSpacing(self.CHARACSPACING)
             
         ### новое состояние ###
         # (стоит не в конце, т.к. changeChar требует 3 состояния)
@@ -226,18 +233,46 @@ class MyWindow(QtGui.QWidget):
         
     ### при изменении характеристики ( new_value - новое значение измененной хар-ки ) ###
     @QtCore.pyqtSlot('QString')
+    def changeEnChar(self,new_value):
+        self.changeChar("init")
+    
+    
+        ### при изменении характеристики ( new_value - новое значение измененной хар-ки ) ###
+    @QtCore.pyqtSlot('QString')
+    def changeRanChar(self,new_value):
+        # далее много проверок на то, что ввёл пользователь
+        string_is_valid=True
+        for el in new_value:
+            if el not in ('0','1','2','3','4','5','6','7','8','9','.'):
+                string_is_valid=False
+                break
+        if new_value.count('.') not in (0,1):
+            string_is_valid=False
+        if new_value[-1:] not in ('0','1','2','3','4','5','6','7','8','9'):
+            string_is_valid=False
+        if string_is_valid==True:
+            self.changeChar("init")
+        else:
+            self.showbtn.setEnabled(False)
+            # Изменяем кол-во найденных
+            strToAdd="<span style='font: bold 14px'>Найдено  :  </span><span style='font: bold 18px'>0</span>"
+            self.found.setText(trUtf8(app,strToAdd))
+            
+    ### непосредственное изменение характеристики ( new_value - новое значение измененной хар-ки ) ###
+    ### вызывается методами changeEnChar, changeRanChar и при первой загрузке
+    @QtCore.pyqtSlot('QString')
     def changeChar(self,new_value):
         # Получаем кол-во найденных
         fc=self.foundQuantity()
         # Изменяем кол-во найденных
-        self.found.setText(trUtf8(app,"Найдено : "+str(fc)))
+        strToAdd="<span style='font: bold 14px'>Найдено  :  </span><span style='font: bold 18px'>"+str(fc)+"</span>"
+        self.found.setText(trUtf8(app,strToAdd))
         
         ### Делаем кнопку "Показать" активной/не активной в зав-ти от кол-ва найденного
         if int(fc)==0:
             self.showbtn.setEnabled(False)
         else:
             self.showbtn.setEnabled(True)
-    
     
     ### возвращает кол-во найденных при заданных параметрах ###
     def foundQuantity(self):
@@ -274,6 +309,8 @@ class MyWindow(QtGui.QWidget):
         if self.condition ==4:
             self.layout_left.removeWidget(self.scr)
             self.scr.deleteLater()
+            self.layout_left.removeWidget(self.comparebtn)
+            self.comparebtn.deleteLater()
         
         # создаём scrollarea
         self.scr=QtGui.QScrollArea()
@@ -281,24 +318,101 @@ class MyWindow(QtGui.QWidget):
         self.scr.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
         #self.scr.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.scr.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-        # создаём layout для товаров
+        
+        # создаём widget и layout для товаров
         com_layout = QtGui.QVBoxLayout()
+        com_widget = QtGui.QWidget()
         
         ### заполняем layout ###
         # получаем значения из введённых форм
         values_array=self.getValuesArray()
         # получаем инфо из базы
         allInfo = queries.selectCommodities(self.current_subcategory,self.ch_id_array,self.types_array,values_array,con)
-        self.com_lab=QtGui.QLabel(trUtf8(app,allInfo))
+        # распаковываем
+        self.ch_info=allInfo[0]           # info:         [ (0-com_id, 1-ch_id,    2-value  ) ... ()]
+        self.nameAndPrice=allInfo[1]   # nameAndPrice: [ (0-com_id, 1-com_name, 2-price_r) ... ()]
+        
+        ### 2 массива для работы функций сравнения товаров ###
+        # массив для хранения checkbox -ов ( для получения выбранных товаров)
+        self.checkboxes_array=[]
+        # массив для хранения id товаров для соответствующих checkbox-ов выше
+        self.selected_comm_array=[]
+        
+        # цикл по всем найденным товарам
+        for el in self.nameAndPrice:
+            # создаём layout для checkboxa и названия товара
+            name_layout=QtGui.QHBoxLayout()
+            # создаём checkbox
+            name_checkbox=QtGui.QCheckBox()
+            self.connect(name_checkbox,QtCore.SIGNAL("stateChanged(int)"),self,QtCore.SLOT("changedCheck(int)"))
+            # создаём имя товара
+            com_str="<span style='font: bold 14px'>"+str(el[1])+"</span>"
+            com_label=QtGui.QLabel(trUtf8(app,com_str))
+            # сохраняем в массивы хранения инфы
+            self.checkboxes_array.append(name_checkbox)
+            self.selected_comm_array.append(el[0])
+            # компонуем
+            name_layout.addWidget(name_checkbox)
+            name_layout.addWidget(com_label)
+            com_layout.addLayout(name_layout)
+            
+            # цену товара вставляем отдельно, т.к. она в отдельном месте лежит
+            com_str_new="<p style='font: 12px'>Цена : <b>"+str(el[2])+"</b></p>"
+            com_label_new=QtGui.QLabel(trUtf8(app,com_str_new))
+            com_layout.addWidget(com_label_new)
+            
+            # цикл по всем характеристикам товара
+            for ch in self.ch_info:
+                if ch[0]!=el[0]: continue
+                else:
+                    # ищем название характеристики
+                    char_name=queries.selectCharName(ch[1],con)  ###              
+                    # пишем характеристику товара
+                    com_str_new="<p style='font: 12px'>"+char_name+" : <b>"+str(ch[2])+"</b></p>"
+                    com_label_new=QtGui.QLabel(trUtf8(app,com_str_new))
+                    com_layout.addWidget(com_label_new)
+            com_layout.addSpacing(50)
+
+        # создание кнопки "Сравнить"
+        self.comparebtn=QtGui.QPushButton(trUtf8(app,"Сравнить"))
+        self.comparebtn.setEnabled(False)
+        self.connect(self.comparebtn,QtCore.SIGNAL("clicked()"),self,QtCore.SLOT("compareComm()"))
+        
+        #com_layout.addWidget(self.comparebtn)
         
         # добавляем всё в окно
-        #com_layout.addWidget(self.com_lab)
-        #self.scr.setLayout(com_layout)
-        self.scr.setWidget(self.com_lab)
+        com_widget.setLayout(com_layout)
+        self.scr.setWidget(com_widget)
         self.layout_left.addWidget(self.scr)
+        self.layout_left.addWidget(self.comparebtn)
         
         ### новое состояние ###
         self.condition=4
+
+    ### при изменении значений на любом из ЧекБоксов ###
+    @QtCore.pyqtSlot('int')
+    def changedCheck(self,new_state):
+        # смотрим сколько ЧекБоксов выбрано
+        count=0
+        for i in self.checkboxes_array:
+            if i.isChecked(): count +=1
+        if count>1:
+            self.comparebtn.setEnabled(True)
+        else:
+            self.comparebtn.setEnabled(False)
+
+    ### при нажатии кнопки "Сравнить" ###
+    @QtCore.pyqtSlot()
+    def compareComm(self):
+        # получаем id товаров, которые нужно сравнить
+        compareId=[]
+        for i in range(0,len(self.checkboxes_array)):
+            if self.checkboxes_array[i].isChecked():
+                compareId.append(self.selected_comm_array[i])
+        
+        ### создание и отображение вложенного окна сравнения
+        cw=comparison.CoparisonWindow(self,con,app,compareId,self.current_subcategory)
+        cw.show()
 
     ### при закрытии ###
     def closeEvent(self,event):
