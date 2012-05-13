@@ -17,13 +17,13 @@ create table commodities (
        com_id serial primary key,
        com_name varchar(40) not null,
        cat_id integer references categories(cat_id),
-       price_p integer check (price_p>1 OR price_p<1000000),
-       price_r integer check (price_r>1 OR price_r<1000000)
+       price_p integer not null check (price_p>1 AND price_p<1000000),
+       price_r integer not null check (price_r>1 AND price_r<1000000)
 );
 create table commodities_characteristics (
        com_id integer references commodities(com_id),
        ch_id integer references characteristics(ch_id),
-       value varchar(30),
+       value varchar(30) not null,
        primary key (com_id, ch_id)
 );
 create user reader with password '000000';
